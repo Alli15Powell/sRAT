@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "srna-align"
+version = "0.1.0"
+description = "sRAT: small RNA exact-match aligner (middle-50, trimming, RC, homopolymer masking, longest-match reporting with >3-site discard)."
+authors = [{ name = "Allison Powell" }]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["biopython", "pandas", "openpyxl", "tqdm"]
+
+[project.scripts]
+srat = "srna_align.cli:main"
+
+[tool.setuptools]
+packages = ["srna_align"]
