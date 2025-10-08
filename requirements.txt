@@ -1,0 +1,9 @@
+biopython
+pandas
+openpyxl
+tqdm
+PyQt5
+
+# Note:
+# Multimapping rule: report all longest (≥20 nt) matches,
+# but discard the read entirely if that longest sequence occurs >3 times.
