@@ -1,5 +1,9 @@
 import sys, subprocess, os
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtWidgets, QtCore, QtGui
+
+QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True)
+QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)
+
 
 class MainWin(QtWidgets.QWidget):
     def __init__(self):
@@ -19,6 +23,13 @@ class MainWin(QtWidgets.QWidget):
         self.out_btn = QtWidgets.QPushButton("Select Output Folder…")
         self.out_label = QtWidgets.QLabel(self.outdir)
         self.run_btn = QtWidgets.QPushButton("Run sRAT")
+
+        #Give Buttons Identities for Styling
+        self.run_btn.setObjectName("primary")
+        self.ref_btn.setObjectName("secondary")
+        self.reads_btn.setObjectName("secondary")
+        self.out_btn.setObjectName("secondary")
+
 
         # layout
         grid = QtWidgets.QGridLayout(self)
@@ -63,10 +74,19 @@ class MainWin(QtWidgets.QWidget):
         out, _ = proc.communicate()
         QtWidgets.QMessageBox.information(self, "sRAT finished", out or "Done.")
         if QtWidgets.QMessageBox.question(self, "Open output folder?", "Open the output folder?") == QtWidgets.QMessageBox.Yes:
-            QtWidgets.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(self.outdir))
+            QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(self.outdir))
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
+    app.setStyle("Fusion")
+    app.setFont(QtGui.QFont("Segoe UI", 10))
+
+    try:
+        with open("STYLE.css", "r", encoding="utf-8") as f:
+            app.setStyleSheet(f.read())
+    except FileNotFoundError:
+        pass
+
     win = MainWin()
     win.show()
     sys.exit(app.exec_())
