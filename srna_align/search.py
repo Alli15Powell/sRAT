@@ -58,51 +58,63 @@ def search_one_read(
         return []
 
     # --- Multimapping rule implementation ---
-    # Determine the longest match length L among found hits
+    # --- find all longest L-mers within the read ---
     max_len = max(h["match_len"] for h in hits)
 
-    # Now we must gather ALL matches of that exact L-nt sequence on BOTH strands.
-    # Identify the L-nt sequence(s) we matched (there can be >1 seq if different subseqs tie at L)
-    longest_seqs = {h["sequence"] for h in hits if h["match_len"] == max_len}
+    def all_lmers(seq: str, L: int):
+        """Return every distinct L-mer substring of seq."""
+        s = set()
+        for i in range(0, len(seq) - L + 1):
+            frag = seq[i:i+L]
+            if "N" not in frag:
+                s.add(frag)
+        return s
 
-    # Query both indexes for every such L-nt sequence to enumerate ALL genomic sites
-    # (This ensures we don't accidentally limit to the first bucket we checked.)
-    all_longest_hits: List[Dict] = []
-    for lseq in longest_seqs:
-        for strand, index in (('+', idx_fwd), ('-', idx_rev)):
-            locs = index.lookup(lseq)
-            for pos in locs:
-                all_longest_hits.append({
-                    "read_id": read_id,
-                    "strand": strand,
-                    "genome": genome_name,
-                    "genome_start": pos,                 # 0-based
-                    "genome_end": pos + len(lseq),       # exclusive
-                    "read_start": None,                   # optional; not critical for rule
-                    "read_end": None,                     # optional; not critical for rule
-                    "sequence": lseq,
-                    "match_len": len(lseq)
-                })
+    longest_seqs = all_lmers(read_seq, max_len)
+    if not longest_seqs:
+        return []
 
-    # Deduplicate by strand+coords+sequence
-    dedup = []
-    seen = set()
-    for h in all_longest_hits:
-        key = (h["strand"], h["genome_start"], h["genome_end"], h["sequence"])
+    all_hits = []
+    for frag in longest_seqs:
+        # lookup both strands
+        fwd_sites = idx_fwd.lookup(frag)
+        rev_sites = idx_rev.lookup(frag)
+
+        # if this fragment maps >3 total times → discard read entirely
+        if len(fwd_sites) + len(rev_sites) > 3:
+            return []
+
+        for pos in fwd_sites:
+            all_hits.append({
+                "read_id": read_id,
+                "strand": "+",
+                "genome": genome_name,
+                "genome_start": pos,
+                "genome_end": pos + max_len,
+                "sequence": frag,
+                "match_len": max_len
+            })
+        for pos in rev_sites:
+            all_hits.append({
+                "read_id": read_id,
+                "strand": "-",
+                "genome": genome_name,
+                "genome_start": pos,
+                "genome_end": pos + max_len,
+                "sequence": frag,
+                "match_len": max_len
+            })
+
+    # deduplicate and sort
+    seen, dedup = set(), []
+    for h in all_hits:
+        key = (h["strand"], h["genome_start"], h["sequence"])
         if key not in seen:
             seen.add(key)
             dedup.append(h)
-
-    # Count distinct sites
-    unique_sites = {(h["strand"], h["genome_start"], h["genome_end"]) for h in dedup}
-    if len(unique_sites) > 3:
-        # Highly repetitive → discard the read entirely
-        return []
-
-    # Otherwise, return all longest sites (1–3)
-    # Sort for deterministic output: by strand, then genome_start
     dedup.sort(key=lambda x: (x["strand"], x["genome_start"]))
     return dedup
+
 
 def _try_subseq(read_id, read_seq, rs, re, strand, index, genome_name, hits_out):
     subseq = read_seq[rs:re]
