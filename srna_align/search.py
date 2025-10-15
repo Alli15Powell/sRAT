@@ -58,31 +58,35 @@ def search_one_read(
         return []
 
     # --- Multimapping rule implementation ---
-    # --- find all longest L-mers within the read ---
+      # --- Determine the longest match length L among found hits ---
     max_len = max(h["match_len"] for h in hits)
 
-    def all_lmers(seq: str, L: int):
-        """Return every distinct L-mer substring of seq."""
-        s = set()
+    # Map every distinct L-mer -> all start positions in the read (0-based)
+    def lmer_positions(seq: str, L: int):
+        pos = {}
         for i in range(0, len(seq) - L + 1):
             frag = seq[i:i+L]
             if "N" not in frag:
-                s.add(frag)
-        return s
+                pos.setdefault(frag, []).append(i)
+        return pos
 
-    longest_seqs = all_lmers(read_seq, max_len)
-    if not longest_seqs:
+    lpos = lmer_positions(read_seq, max_len)
+    if not lpos:
         return []
 
     all_hits = []
-    for frag in longest_seqs:
+    for frag, starts in lpos.items():
         # lookup both strands
         fwd_sites = idx_fwd.lookup(frag)
         rev_sites = idx_rev.lookup(frag)
 
-        # if this fragment maps >3 total times → discard read entirely
+        # If this fragment maps >3 total times, discard the entire read
         if len(fwd_sites) + len(rev_sites) > 3:
             return []
+
+        # Use the first read occurrence for read_coords
+        r0 = starts[0]
+        r1 = r0 + max_len
 
         for pos in fwd_sites:
             all_hits.append({
@@ -91,6 +95,8 @@ def search_one_read(
                 "genome": genome_name,
                 "genome_start": pos,
                 "genome_end": pos + max_len,
+                "read_start": r0,
+                "read_end": r1,
                 "sequence": frag,
                 "match_len": max_len
             })
@@ -101,17 +107,20 @@ def search_one_read(
                 "genome": genome_name,
                 "genome_start": pos,
                 "genome_end": pos + max_len,
+                "read_start": r0,
+                "read_end": r1,
                 "sequence": frag,
                 "match_len": max_len
             })
 
-    # deduplicate and sort
+    # Deduplicate and sort
     seen, dedup = set(), []
     for h in all_hits:
         key = (h["strand"], h["genome_start"], h["sequence"])
         if key not in seen:
             seen.add(key)
             dedup.append(h)
+
     dedup.sort(key=lambda x: (x["strand"], x["genome_start"]))
     return dedup
 
