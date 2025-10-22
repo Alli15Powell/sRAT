@@ -6,11 +6,11 @@ def write_excel(hits, out_path: str):
       read_id, strand, genome_coords(1-based), read_coords(1-based), sequence, match_len
     If hits is empty, still create a sheet with headers.
     """
-    cols = ["read_id","strand","genome_coords","read_coords","sequence","match_len"]
+    cols = ["read_id","strand","genome_coords","read_coords","sequence","match_len", "reference_name"]
     if not hits:
         pd.DataFrame(columns=cols).to_excel(out_path, index=False)
         return
-
+    
     rows = []
     for h in hits:
         g_start_1 = h["genome_start"] + 1
@@ -30,5 +30,6 @@ def write_excel(hits, out_path: str):
             "read_coords":   read_coords,
             "sequence": h["sequence"],
             "match_len": h["match_len"],
+            "reference_name": h["genome"],
         })
     pd.DataFrame(rows, columns=cols).to_excel(out_path, index=False)
